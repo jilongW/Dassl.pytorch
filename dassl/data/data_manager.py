@@ -1,3 +1,6 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 import torchvision.transforms as T
 from tabulate import tabulate
@@ -19,30 +22,38 @@ def build_data_loader(
     n_ins=2,
     tfm=None,
     is_train=True,
-    dataset_wrapper=None
+    dataset_wrapper=None,
+    flag=True,
 ):
     # Build sampler
     sampler = build_sampler(
-        sampler_type,
-        cfg=cfg,
-        data_source=data_source,
-        batch_size=batch_size,
-        n_domain=n_domain,
-        n_ins=n_ins
+        sampler_type, cfg=cfg, data_source=data_source, batch_size=batch_size, n_domain=n_domain, n_ins=n_ins, flag=flag
     )
 
     if dataset_wrapper is None:
         dataset_wrapper = DatasetWrapper
-
+    # print("----------------------------------------")
     # Build data loader
-    data_loader = torch.utils.data.DataLoader(
-        dataset_wrapper(cfg, data_source, transform=tfm, is_train=is_train),
-        batch_size=batch_size,
-        sampler=sampler,
-        num_workers=cfg.DATALOADER.NUM_WORKERS,
-        drop_last=is_train and len(data_source) >= batch_size,
-        pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA)
-    )
+    if cfg.TRAINER.COOP.XPU:
+        # print(1111)
+        data_loader = torch.utils.data.DataLoader(
+            dataset_wrapper(cfg, data_source, transform=tfm, is_train=is_train),
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=cfg.DATALOADER.NUM_WORKERS,
+            drop_last=is_train and len(data_source) >= batch_size,
+            pin_memory=True,
+            pin_memory_device="xpu",
+        )
+    else:
+        data_loader = torch.utils.data.DataLoader(
+            dataset_wrapper(cfg, data_source, transform=tfm, is_train=is_train),
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=cfg.DATALOADER.NUM_WORKERS,
+            drop_last=is_train and len(data_source) >= batch_size,
+            pin_memory=(torch.cuda.is_available() and cfg.USE_CUDA),
+        )
     assert len(data_loader) > 0
 
     return data_loader
@@ -50,13 +61,7 @@ def build_data_loader(
 
 class DataManager:
 
-    def __init__(
-        self,
-        cfg,
-        custom_tfm_train=None,
-        custom_tfm_test=None,
-        dataset_wrapper=None
-    ):
+    def __init__(self, cfg, custom_tfm_train=None, custom_tfm_test=None, dataset_wrapper=None):
         # Load dataset
         dataset = build_dataset(cfg)
 
@@ -83,7 +88,7 @@ class DataManager:
             n_ins=cfg.DATALOADER.TRAIN_X.N_INS,
             tfm=tfm_train,
             is_train=True,
-            dataset_wrapper=dataset_wrapper
+            dataset_wrapper=dataset_wrapper,
         )
 
         # Build train_loader_u
@@ -109,9 +114,19 @@ class DataManager:
                 n_ins=n_ins_,
                 tfm=tfm_train,
                 is_train=True,
-                dataset_wrapper=dataset_wrapper
+                dataset_wrapper=dataset_wrapper,
+                flag=False,
             )
-
+        train_loader_u = build_data_loader(
+            cfg,
+            sampler_type=cfg.DATALOADER.TEST.SAMPLER,
+            data_source=dataset.train_x,
+            batch_size=cfg.DATALOADER.TEST.BATCH_SIZE,
+            tfm=tfm_test,
+            is_train=False,
+            dataset_wrapper=dataset_wrapper,
+            flag=False,
+        )
         # Build val_loader
         val_loader = None
         if dataset.val:
@@ -122,7 +137,8 @@ class DataManager:
                 batch_size=cfg.DATALOADER.TEST.BATCH_SIZE,
                 tfm=tfm_test,
                 is_train=False,
-                dataset_wrapper=dataset_wrapper
+                dataset_wrapper=dataset_wrapper,
+                flag=False,
             )
 
         # Build test_loader
@@ -133,9 +149,33 @@ class DataManager:
             batch_size=cfg.DATALOADER.TEST.BATCH_SIZE,
             tfm=tfm_test,
             is_train=False,
-            dataset_wrapper=dataset_wrapper
+            dataset_wrapper=dataset_wrapper,
+            flag=False,
         )
-
+        # Build trainer_loader_cache
+        train_loader_cache = build_data_loader(
+            cfg,
+            sampler_type="RandomSampler",
+            data_source=dataset.train_x,
+            batch_size=256,
+            n_domain=cfg.DATALOADER.TRAIN_X.N_DOMAIN,
+            n_ins=cfg.DATALOADER.TRAIN_X.N_INS,
+            tfm=tfm_train,
+            is_train=True,
+            dataset_wrapper=dataset_wrapper,
+        )
+        # Build Trainer_loader_cache_f
+        train_loader_cache_f = build_data_loader(
+            cfg,
+            sampler_type="RandomSampler",
+            data_source=dataset.train_x,
+            batch_size=256,
+            n_domain=cfg.DATALOADER.TRAIN_X.N_DOMAIN,
+            n_ins=cfg.DATALOADER.TRAIN_X.N_INS,
+            tfm=tfm_train,
+            is_train=True,
+            dataset_wrapper=dataset_wrapper,
+        )
         # Attributes
         self._num_classes = dataset.num_classes
         self._num_source_domains = len(cfg.DATASET.SOURCE_DOMAINS)
@@ -147,6 +187,8 @@ class DataManager:
         self.train_loader_u = train_loader_u
         self.val_loader = val_loader
         self.test_loader = test_loader
+        self.train_loader_cache = train_loader_cache
+        self.train_loader_cache_f = train_loader_cache_f
 
         if cfg.VERBOSE:
             self.show_dataset_summary(cfg)
@@ -197,10 +239,7 @@ class DatasetWrapper(TorchDataset):
         self.return_img0 = cfg.DATALOADER.RETURN_IMG0
 
         if self.k_tfm > 1 and transform is None:
-            raise ValueError(
-                "Cannot augment the image {} times "
-                "because transform is None".format(self.k_tfm)
-            )
+            raise ValueError("Cannot augment the image {} times " "because transform is None".format(self.k_tfm))
 
         # Build transform that doesn't apply any data augmentation
         interp_mode = INTERPOLATION_MODES[cfg.INPUT.INTERPOLATION]
@@ -208,9 +247,7 @@ class DatasetWrapper(TorchDataset):
         to_tensor += [T.Resize(cfg.INPUT.SIZE, interpolation=interp_mode)]
         to_tensor += [T.ToTensor()]
         if "normalize" in cfg.INPUT.TRANSFORMS:
-            normalize = T.Normalize(
-                mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD
-            )
+            normalize = T.Normalize(mean=cfg.INPUT.PIXEL_MEAN, std=cfg.INPUT.PIXEL_STD)
             to_tensor += [normalize]
         self.to_tensor = T.Compose(to_tensor)
 
@@ -224,7 +261,8 @@ class DatasetWrapper(TorchDataset):
             "label": item.label,
             "domain": item.domain,
             "impath": item.impath,
-            "index": idx
+            "index": idx,
+            "classname": item.classname,
         }
 
         img0 = read_image(item.impath)

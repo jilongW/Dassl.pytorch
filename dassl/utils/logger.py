@@ -1,9 +1,13 @@
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
 import os
+import os.path as osp
 import sys
 import time
-import os.path as osp
 
 from .tools import mkdir_if_missing
+
 
 __all__ = ["Logger", "setup_logger"]
 
@@ -61,7 +65,7 @@ def setup_logger(output=None):
     if output is None:
         return
 
-    if output.endswith(".txt") or output.endswith(".log"):
+    if output.endswith(".txt") or output.endswith(".log") or output.endswith(".jsonl"):
         fpath = output
     else:
         fpath = osp.join(output, "log.txt")
