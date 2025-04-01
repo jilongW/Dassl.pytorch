@@ -135,6 +135,7 @@ BIAS_TERMS_EXCLUDE      which layer's bias you don't need to tune, in this confi
 # run with huggingface transformers backbone
 export HF_ENDPOINT=https://hf-mirror.com
 export TOKENIZERS_PARALLELISM=false
+export DATA=/path/to/dataset
 bash scripts/clip_finetune/clip_adapter_hf.sh caltech101 vit_b16 0 XPU
 bash scripts/clip_finetune/clip_fullfinetune_hf.sh caltech101 vit_b16 0 XPU
 bash scripts/clip_finetune/clip_bias_hf.sh caltech101 vit_b16 0 XPU
