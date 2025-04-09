@@ -280,42 +280,21 @@ def main(args):
         torch.backends.cudnn.benchmark = True
     # config for XPU, used in DDP
     if cfg.TRAINER.COOP.XPU:
-        mpi_world_size = int(os.environ.get("PMI_SIZE", -1))
-        mpi_rank = int(os.environ.get("PMI_RANK", -1))
-        if mpi_world_size > 0:
-            os.environ["RANK"] = str(mpi_rank)
-            os.environ["WORLD_SIZE"] = str(mpi_world_size)
-        else:
-            # set the default rank and world size to 0 and 1
-            os.environ["RANK"] = str(os.environ.get("RANK", 0))
-            os.environ["WORLD_SIZE"] = str(os.environ.get("WORLD_SIZE", 1))
-        os.environ["MASTER_ADDR"] = "127.0.0.1"  # your master address
-        os.environ["MASTER_PORT"] = "29500"  # your master port
-        args.world_size = int(os.environ.get("WORLD_SIZE", -1))
-        args.rank = int(os.environ.get("PMI_RANK", -1))
-        init_method = "tcp://" + args.dist_url + ":" + args.dist_port
+        import intel_extension_for_pytorch
+        import oneccl_bindings_for_pytorch
         if torch.xpu.device_count() > 1:
-            mpi_world_size = int(os.environ.get("PMI_SIZE", -1))
-            mpi_rank = int(os.environ.get("PMI_RANK", -1))
-            if mpi_world_size > 0:
-                os.environ["RANK"] = str(mpi_rank)
-                os.environ["WORLD_SIZE"] = str(mpi_world_size)
-            else:
-                # set the default rank and world size to 0 and 1
-                os.environ["RANK"] = str(os.environ.get("RANK", 0))
-                os.environ["WORLD_SIZE"] = str(os.environ.get("WORLD_SIZE", 1))
+            if not torch.distributed.is_initialized():
+                torch.distributed.init_process_group("ccl")
             os.environ["MASTER_ADDR"] = "127.0.0.1"  # your master address
             os.environ["MASTER_PORT"] = "29500"  # your master port
             args.world_size = int(os.environ.get("WORLD_SIZE", -1))
-            args.rank = int(os.environ.get("PMI_RANK", -1))
-            init_method = "tcp://" + args.dist_url + ":" + args.dist_port
-            dist.init_process_group(
-                backend=args.dist_backend, init_method=init_method, world_size=args.world_size, rank=args.rank
-            )
-            local_rank = os.environ["MPI_LOCALRANKID"]
+            args.rank = int(os.environ["RANK"])
+            local_rank = int(os.environ["LOCAL_RANK"])
             # cfg.OUTPUT_DIR = cfg.OUTPUT_DIR + "/" + str(local_rank)
         else:
             local_rank = 0
+        if torch.distributed.is_initialized():
+            torch.xpu.set_device(local_rank)
         args.xpu_id = local_rank
         args.xpu_id = "xpu:{}".format(args.xpu_id)
         cfg.TRAINER.COOP.XPU_ID = args.xpu_id
