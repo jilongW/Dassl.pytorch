@@ -15,7 +15,7 @@ class _BaseWarmupScheduler(_LRScheduler):
     def __init__(self, optimizer, successor, warmup_epoch, last_epoch=-1, verbose=False):
         self.successor = successor
         self.warmup_epoch = warmup_epoch
-        super().__init__(optimizer, last_epoch, verbose)
+        super().__init__(optimizer, last_epoch)
 
     def get_lr(self):
         raise NotImplementedError
