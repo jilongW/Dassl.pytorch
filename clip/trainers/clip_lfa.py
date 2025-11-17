@@ -41,7 +41,7 @@ CUSTOM_TEMPLATES = {
     "ImageNetV2": "a photo of a {}.",
     "ImageNetA": "a photo of a {}.",
     "ImageNetR": "a photo of a {}.",
-    "ITC_Flickr": "{}.",
+    "ITC_FlickrCN": "{}.",
     "ITC_Flickr5k": "{}.",
     "ITC_Mscoco": "{}.",
 }
@@ -49,6 +49,8 @@ _MODELS = {
     "ViT-B/16": "openai/clip-vit-base-patch16",
     "ViT-B/32": "openai/clip-vit-base-patch32",
     "ViT-L/14": "openai/clip-vit-large-patch14",
+    "CnViT-B/16": "OFA-Sys/chinese-clip-vit-base-patch16",
+    "CnViT-L/14": "OFA-Sys/chinese-clip-vit-large-patch14",
 }
 
 final_beta = 0.0
