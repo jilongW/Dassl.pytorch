@@ -36,7 +36,7 @@ def pre_caption(caption, max_words=50):
 @DATASET_REGISTRY.register()
 class ITC_FlickrCN(DatasetBase):
 
-    dataset_dir = "Flickr30k-CN"
+    dataset_dir = "flickrcn"
 
     def __init__(self, cfg):
         root = os.path.abspath(os.path.expanduser(cfg.DATASET.ROOT))
