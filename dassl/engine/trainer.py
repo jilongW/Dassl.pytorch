@@ -531,6 +531,10 @@ class SimpleTrainer(TrainerBase):
                     annotation = json.load(
                         open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickr5k"), "flickr5k_val.json"), "r")
                     )
+                elif self.cfg.DATASET.NAME == "ITC_FlickrCN":
+                    annotation = json.load(
+                        open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickrcn"), "flickr30k_cn_val.json"), "r")
+                    )
                 else:
                     annotation = json.load(
                         open(
@@ -547,6 +551,10 @@ class SimpleTrainer(TrainerBase):
                     annotation = json.load(
                         open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickr5k"), "flickr5k_test.json"), "r")
                     )
+                elif self.cfg.DATASET.NAME == "ITC_FlickrCN":
+                    annotation = json.load(
+                        open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickrcn"), "flickr30k_cn_test.json"), "r")
+                    )
                 else:
                     annotation = json.load(
                         open(
@@ -562,6 +570,10 @@ class SimpleTrainer(TrainerBase):
                 elif self.cfg.DATASET.NAME == "ITC_Flickr5k":
                     annotation = json.load(
                         open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickr5k"), "flickr5k_test.json"), "r")
+                    )
+                elif self.cfg.DATASET.NAME == "ITC_FlickrCN":
+                    annotation = json.load(
+                        open(os.path.join(os.path.join(self.cfg.DATASET.ROOT, "flickrcn"), "flickr30k_cn_test.json"), "r")
                     )
                 else:
                     annotation = json.load(

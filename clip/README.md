@@ -2,7 +2,15 @@
 
 We utilize the code base of [CoOp](https://github.com/KaiyangZhou/CoOp). Please follow their instructions to prepare the environment and datasets.
 
-## run on NV A100
+## Support Models
+
+| Model Type | Supported Variants |
+| ---------- | ------------------ |
+| CLIP       | B/16, L/14         |
+| CnCLIP     | B/16, L/14         |
+
+## Environment Setup
+### run on NV A100
 
 ```python
 conda create -y -n clip_adapter python=3.10
@@ -26,9 +34,9 @@ pip install transformers
 export HF_ENDPOINT=https://hf-mirror.com
 ```
 
-## run on A770
+### run on A770
 
-### Download oneapi
+#### Download oneapi
 
 You can refer to https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html
 
@@ -37,11 +45,11 @@ wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/dfc4a434-838c-4
 sudo sh ./intel-oneapi-base-toolkit-2025.0.1.46_offline.sh -a --silent --cli --eula accept
 ```
 
-### Install Driver
+#### Install Driver
 
 please follow [Install Dependency](./doc/install_dependency.md) to install public Driver
 
-### Install IPEX and other lib
+#### Install IPEX and other lib
 
 ```python
 conda create -y -n clip_adapter python=3.10
@@ -71,7 +79,7 @@ export HF_ENDPOINT=https://hf-mirror.com
 Please follow [doc](./doc/Prepare_dataset.md)
 
 ```python
-# support  caltech101, mini-imagenet, flickr30k, flickr5k
+# support  caltech101, mini-imagenet, flickr30k, flickr5k, flick30kcn
 The dataset directory should be link
 data
 --- caltech-101
@@ -81,14 +89,34 @@ data
 --- mini-imagenet
 ```
 
-## Get Started
 
-Run on Nvidia
+# config yaml for clip_bias
 
 ```python
+we use yaml to config param.
+e.g.       ./configs/clip_finetune/vit_b16_bias_example.yaml
+BIAS_TERMS:             which layer's bias you want to tune, default to tune all bias layer, in this config we tune the layer with attn or mlp in name
+BIAS_TERMS_EXCLUDE      which layer's bias you don't need to tune, in this config we don't tune text_encoder
+```
+
+## code structure
+
+```python
+./scripts/clip_finetune contains the scripts we use to run
+./trainers contains model related code
+```
+## Get Started
+
+### Run on Nvidia
+
+Environment Variable Settings：
+```bash
 export HF_ENDPOINT=https://hf-mirror.com
 export TOKENIZERS_PARALLELISM=false
 export DATA=/path/to/dataset
+```
+#### Run CLIP
+```bash
 # run clip_adapter
 # run with huggingface transformers backbone
 # run clip_adapter
@@ -111,31 +139,42 @@ bash scripts/clip_finetune/clip_adapter_hf.sh flickr30k vit_b16 0
 # checkpoint will save to output/$METHOD/$MODEL/$DATASET
 # you can set `export CLIP_DEBUG=1` to remove checkpoint
 ```
+#### Run CnCLIP
+```bash
+# run CnCLIP B/16 model using clip_adapter
+bash scripts/clip_finetune/clip_adapter_hf.sh flickr30kcn cnvit_b16 0
+# run CnCLIP B/16 model using clip_adapter and do val/train acc cal every 10 epoch
+bash scripts/clip_finetune/clip_adapter_hf.sh flickr30kcn cnvit_b16 10
+# run CnCLIP B/16 model using clip_full_finetune
+bash scripts/clip_finetune/clip_fullfinetune_hf.sh flickr30kcn cnvit_b16 0
+# run CnCLIP B/16 model using clip_bias
+bash scripts/clip_finetune/clip_bias_hf.sh flickr30kcn cnvit_b16 0
+# run CnCLIP B/16 model using clip_prompt with 1 prompt length and use Deep VPT
+bash scripts/clip_finetune/clip_prompt_hf.sh flickr30kcn cnvit_b16 1 True 0
+# run CnCLIP B/16 model using clip_prompt with 2 prompt length and don't use Deep VPT
+bash scripts/clip_finetune/clip_prompt_hf.sh flickr30kcn cnvit_b16 2 False 0
+# run CnCLIP B/16 model using clip_prompt with 1 prompt length and use Deep VPT
+bash scripts/clip_finetune/clip_prompt_hf.sh flickr30kcn cnvit_b16 1 True 0
+# run CnCLIP L/14 model with clip_adapter
+bash scripts/clip_finetune/clip_adapter_hf.sh flickr30kcn cnvit_l14 0
 
-# config yaml for clip_bias
-
-```python
-we use yaml to config param.
-e.g.       ./configs/clip_finetune/vit_b16_bias_example.yaml
-BIAS_TERMS:             which layer's bias you want to tune, default to tune all bias layer, in this config we tune the layer with attn or mlp in name
-BIAS_TERMS_EXCLUDE      which layer's bias you don't need to tune, in this config we don't tune text_encoder
+# checkpoint will save to output/$METHOD/$MODEL/$DATASET
+# you can set `export CLIP_DEBUG=1` to remove checkpoint
 ```
+### Run on single A770 or B60
 
-## code structure
-
-```python
-./scripts/clip_finetune contains the scripts we use to run
-./trainers contains model related code
-```
-
-### Run on single A770
-
+Environment Variable Settings：
 ```bash
 # run with A770
 # run with huggingface transformers backbone
 export HF_ENDPOINT=https://hf-mirror.com
 export TOKENIZERS_PARALLELISM=false
 export DATA=/path/to/dataset
+```
+#### Run CLIP
+
+```bash
+
 bash scripts/clip_finetune/clip_adapter_hf.sh caltech101 vit_b16 0 XPU
 bash scripts/clip_finetune/clip_fullfinetune_hf.sh caltech101 vit_b16 0 XPU
 bash scripts/clip_finetune/clip_bias_hf.sh caltech101 vit_b16 0 XPU
@@ -143,14 +182,33 @@ bash scripts/clip_finetune/clip_prompt_hf.sh caltech101 vit_b16 1 True 0 XPU
 
 ```
 
-### Run on A770 with DDP
+#### Run CnCLIP
 
-```python
+```bash
+
+bash scripts/clip_finetune/clip_adapter_hf.sh flickr30kcn cnvit_b16 0 XPU
+bash scripts/clip_finetune/clip_fullfinetune_hf.sh flickr30kcn cnvit_b16 0 XPU
+bash scripts/clip_finetune/clip_bias_hf.sh flickr30kcn cnvit_b16 0 XPU
+bash scripts/clip_finetune/clip_prompt_hf.sh flickr30kcn cnvit_b16 1 True 0 XPU
+
+```
+
+### Run on A770 or B60 with DDP
+
+Environment Variable Settings：
+```bash
 export NEOReadDebugKeys=1
 export DisableScratchPages=0
 export CCL_ATL_TRANSPORT=ofi
-
+```
+#### Run CLIP
+```
 bash scripts/clip_finetune/clip_adapter_hf_muti.sh caltech101 vit_b16 0 XPU
+```
+
+#### Run CnCLIP
+```
+bash scripts/clip_finetune/clip_adapter_hf_muti.sh flickr30kcn cnvit_b16 0 XPU
 ```
 
 # use optuna to automatic get the best param
@@ -161,9 +219,15 @@ You can set the bs and lr in yaml, such as ./configs/clip_finetune/vit_b16_opt.y
 
 ```python
 # turn on optuna in A100
+# CLIP:
 bash scripts/clip_finetune/clip_adapter_hf_opt.sh caltech101 vit_b16 0 cuda 1
+# CnCLIP:
+bash scripts/clip_finetune/clip_adapter_hf_opt.sh flickr30kcn cnvit_b16 0 cuda 1
 # turn on optuna in A770
+# CLIP:
 bash scripts/clip_finetune/clip_adapter_hf_opt.sh caltech101 vit_b16 0 XPU 1
+# CnCLIP
+bash scripts/clip_finetune/clip_adapter_hf_opt.sh flickr30kcn cnvit_b16 0 XPU 1
 ```
 
 ## Performance of different finetune methods on Caltech-101

@@ -19,6 +19,7 @@ from datasets import (
     dtd,
     flickr,
     flickr5k,
+    flickrcn,
     imagenet,
     imagenet_a,
     imagenet_r,
